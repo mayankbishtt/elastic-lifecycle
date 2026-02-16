@@ -1,0 +1,14 @@
+es:
+  url: "http://elasticsearch:9200"
+  ilmPolicyName: "delete_after_30_days"
+  rolloverAge: "1d"
+  deleteAge: "20d"
+  secretName: "elasticsearch-credentials"
+  
+dataStreams:
+  - logs-apm*
+  - metrics-apm*
+  - traces-apm*
+
+cron:
+  schedule: "*/5 * * * *"
