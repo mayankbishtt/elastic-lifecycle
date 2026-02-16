@@ -4,29 +4,57 @@ metadata:
   name: elastic-lifecycle
 spec:
   schedule: "{{ .Values.cron.schedule }}"
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
   jobTemplate:
     spec:
+      backoffLimit: 3
       template:
         spec:
           restartPolicy: OnFailure
+
           containers:
             - name: lifecycle
               image: curlimages/curl:8.5.0
+              imagePullPolicy: IfNotPresent
+
               command:
                 - sh
                 - -c
                 - |
-                  echo "Creating ILM policy..."
-                  curl -u $ES_USERNAME:$ES_PASSWORD \
-                  -X PUT {{ .Values.es.url }}/_ilm/policy/{{ .Values.es.ilmPolicyName }} \
-                  -H "Content-Type: application/json" \
-                  -d '{"policy":{"phases":{"hot":{"actions":{"rollover":{"max_age":"{{ .Values.es.rolloverAge }}"}}},"delete":{"min_age":"{{ .Values.es.deleteAge }}","actions":{"delete":{}}}}}}'
+                  set -e
 
-                  echo "Disabling DSL..."
+                  echo "=============================="
+                  echo "Applying ILM Policy..."
+                  echo "=============================="
+
                   curl -u $ES_USERNAME:$ES_PASSWORD \
-                  -X PUT {{ .Values.es.url }}/_data_stream/logs-apm*,metrics-apm*,traces-apm*/_lifecycle \
-                  -H "Content-Type: application/json" \
-                  -d '{"enabled": false}'
+                    -X PUT {{ .Values.es.url }}/_ilm/policy/{{ .Values.es.ilmPolicyName }} \
+                    -H "Content-Type: application/json" \
+                    --data-binary @/config/ilm-policy.json
+
+                  echo ""
+                  echo "=============================="
+                  echo "Disabling Data Stream Lifecycle (DSL)..."
+                  echo "=============================="
+
+                  curl -u $ES_USERNAME:$ES_PASSWORD \
+                    -X PUT {{ .Values.es.url }}/_data_stream/logs-apm*,metrics-apm*,traces-apm*/_lifecycle \
+                    -H "Content-Type: application/json" \
+                    -d '{"enabled": false}'
+
+                  echo ""
+                  echo "=============================="
+                  echo "Attaching ILM to existing backing indices..."
+                  echo "=============================="
+
+                  curl -u $ES_USERNAME:$ES_PASSWORD \
+                    -X PUT {{ .Values.es.url }}/.ds-logs-apm*,.ds-metrics-apm*,.ds-traces-apm*/_settings \
+                    -H "Content-Type: application/json" \
+                    -d '{"index.lifecycle.name":"{{ .Values.es.ilmPolicyName }}"}'
+
+                  echo ""
+                  echo "Lifecycle automation completed successfully."
 
               env:
                 - name: ES_USERNAME
@@ -34,8 +62,18 @@ spec:
                     secretKeyRef:
                       name: {{ .Values.es.secretName }}
                       key: username
+
                 - name: ES_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       name: {{ .Values.es.secretName }}
                       key: password
+
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+
+          volumes:
+            - name: config
+              configMap:
+                name: elastic-lifecycle-config
