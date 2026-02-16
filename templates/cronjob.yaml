@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: elastic-lifecycle
+spec:
+  schedule: "{{ .Values.cron.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: lifecycle
+              image: curlimages/curl:8.5.0
+              command:
+                - sh
+                - -c
+                - |
+                  echo "Creating ILM policy..."
+                  curl -u $ES_USERNAME:$ES_PASSWORD \
+                  -X PUT {{ .Values.es.url }}/_ilm/policy/{{ .Values.es.ilmPolicyName }} \
+                  -H "Content-Type: application/json" \
+                  -d '{"policy":{"phases":{"hot":{"actions":{"rollover":{"max_age":"{{ .Values.es.rolloverAge }}"}}},"delete":{"min_age":"{{ .Values.es.deleteAge }}","actions":{"delete":{}}}}}}'
+
+                  echo "Disabling DSL..."
+                  curl -u $ES_USERNAME:$ES_PASSWORD \
+                  -X PUT {{ .Values.es.url }}/_data_stream/logs-apm*,metrics-apm*,traces-apm*/_lifecycle \
+                  -H "Content-Type: application/json" \
+                  -d '{"enabled": false}'
+
+              env:
+                - name: ES_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.es.secretName }}
+                      key: username
+                - name: ES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.es.secretName }}
+                      key: password
