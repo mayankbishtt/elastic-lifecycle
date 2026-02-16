@@ -8,7 +8,6 @@ es:
 dataStreams:
   - logs-apm*
   - metrics-apm*
-  - traces-apm*
 
 cron:
   schedule: "*/5 * * * *"
