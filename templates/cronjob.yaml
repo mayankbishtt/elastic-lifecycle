@@ -28,7 +28,7 @@ spec:
                   echo "Applying ILM Policy..."
                   echo "=============================="
 
-                  curl -u $ES_USERNAME:$ES_PASSWORD \
+                  curl -k -u $ES_USERNAME:$ES_PASSWORD \
                     -X PUT {{ .Values.es.url }}/_ilm/policy/{{ .Values.es.ilmPolicyName }} \
                     -H "Content-Type: application/json" \
                     --data-binary @/config/ilm-policy.json
@@ -38,7 +38,7 @@ spec:
                   echo "Disabling Data Stream Lifecycle (DSL)..."
                   echo "=============================="
 
-                  curl -u $ES_USERNAME:$ES_PASSWORD \
+                  curl -k -u $ES_USERNAME:$ES_PASSWORD \
                     -X PUT {{ .Values.es.url }}/_data_stream/logs-apm*,metrics-apm*,traces-apm*/_lifecycle \
                     -H "Content-Type: application/json" \
                     -d '{"enabled": false}'
@@ -48,7 +48,7 @@ spec:
                   echo "Attaching ILM to existing backing indices..."
                   echo "=============================="
 
-                  curl -u $ES_USERNAME:$ES_PASSWORD \
+                  curl -k -u $ES_USERNAME:$ES_PASSWORD \
                     -X PUT {{ .Values.es.url }}/.ds-logs-apm*,.ds-metrics-apm*,.ds-traces-apm*/_settings \
                     -H "Content-Type: application/json" \
                     -d '{"index.lifecycle.name":"{{ .Values.es.ilmPolicyName }}"}'
