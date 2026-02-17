@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: es-lifecycle
+  namespace: argocd
+spec:
+  destination:
+    namespace: default
+    name: in-cluster
+  project: default
+  source:
+    path: .
+    repoURL: https://github.com/mayankbishtt/elastic-lifecycle
+    targetRevision: main
+    helm:
+      releaseName: es-lifecycle
+      valueFiles:
+        - values.yaml
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - PruneLast=true
+      - CreateNamespace=true
